@@ -3,7 +3,7 @@ All data used can be downloaded from https://drive.google.com/drive/folders/1ztq
 The below describes the process for acquiring each of the datasets.
 
 ```
-python domainbed/scripts/download.py --data-dir <data output directory>
+python domainbed/scripts/download.py --data_dir <data output directory>
 ```
 
 For CelebA: 
