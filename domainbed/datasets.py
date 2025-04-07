@@ -2,6 +2,7 @@
 
 import csv
 import os
+import json
 from pathlib import Path
 
 import numpy as np
@@ -42,6 +43,7 @@ DATASETS = [
     'ImageNet_A',
     'ImageNet_R',
     'ImageNet_V2',
+    'ImageNet_V2_Super400',
 ]
 
 
@@ -570,8 +572,20 @@ class NICO_Mixed(MultipleDomainDataset):
         self.num_classes = 2  # animal or vehicle
 
 
+class CustomLabelMappingDataset(ImageFolder):
+    def __init__(self, root, classes, subclass_to_idx, transform=None):
+        self.classes = classes
+        self.subclass_to_idx = subclass_to_idx
+        super(CustomLabelMappingDataset, self).__init__(root, transform=transform)
+        self.imgs = self.samples
+
+    def find_classes(self, directory):
+        return self.classes, self.subclass_to_idx
+
+
 class ImageNetVariant(MultipleDomainDataset):
-    def __init__(self, root, environments, test_envs, augment, hparams):
+    def __init__(self, root, environments, test_envs, augment, hparams,
+                 classes=None, subclass_to_idx=None):
         super().__init__()
 
         transform = get_transform()
@@ -585,7 +599,11 @@ class ImageNetVariant(MultipleDomainDataset):
             else:
                 env_transform = transform
             path = Path(root, environment)
-            env_dataset = ImageFolder(path, transform=env_transform)
+            if classes is None:
+                env_dataset = ImageFolder(path, transform=env_transform)
+            else:
+                env_dataset = CustomLabelMappingDataset(
+                    path, classes, subclass_to_idx, transform=env_transform)
             self.datasets.append(env_dataset)
 
         self.input_shape = (3, 224, 224,)
@@ -612,3 +630,16 @@ class ImageNet_V2(ImageNetVariant):
         super().__init__(root, ['ILSVRC/Data/CLS-LOC/train',
                                 'imagenetv2-matched-frequency-format-val'],
                          test_envs, hparams['data_augmentation'], hparams)
+
+
+class ImageNet_V2_Super400(ImageNetVariant):
+    ENVIRONMENTS = ['imagenet_train', 'imagenet_v2']
+    def __init__(self, root, test_envs, hparams):
+        with Path(root, 'imagenetv2_super400_class_wnid_and_names.json').open() as f:
+            classes = json.load(f)
+        with Path(root, 'imagenetv2_super400_label_mapping.json').open() as f:
+            subclass_to_idx = json.load(f)
+        super().__init__(root, ['ILSVRC/Data/CLS-LOC/train',
+                                'imagenetv2-matched-frequency-format-val'],
+                         test_envs, hparams['data_augmentation'], hparams,
+                         classes=classes, subclass_to_idx=subclass_to_idx)
